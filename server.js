@@ -7,25 +7,29 @@ const port = process.env.PORT || 5000;
 
 app.use(express.json());
 
-app.use("/locations", require("./src/routes/LocationRoutes"));
+app.use("/locations", require("./src/routes/locationRoutes"));
 app.use("/chargers", require("./src/routes/chargerRoutes"));
-app.use("/connectors",require("./src/routes/connectorRoutes"));
+app.use("/connectors", require("./src/routes/connectorRoutes"));
 
-mongoose.connect(process.env.MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => {
-    console.log("Connected to MongoDB");
-  })
-  .catch((err) => {
+async function start() {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) throw new Error("MONGODB_URI is not set in .env");
+
+  try {
+    await mongoose.connect(uri); // ✅ no useNewUrlParser / useUnifiedTopology
+    console.log("MongoDB connected");
+  } catch (err) {
     console.error("Error connecting to MongoDB:", err.message);
-  });
+    process.exit(1);
+  }
 
+  app.listen(port, () => {
+    console.log(`Server is running at http://localhost:${port}`);
+  });
+}
+
+start();
 app.get("/", (req, res) => {
   res.send("server is running");
 });
 
-app.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
-});
