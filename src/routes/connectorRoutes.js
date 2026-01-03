@@ -5,28 +5,35 @@ const Location = require("../model/Location");
 router.post("/:locationId/chargers/:chargerId/connectors", async (req, res) => {
   const { locationId, chargerId } = req.params;
   try {
-    const location = await Location.findOne({ locationId });
-    if (!location) {
-      return res.status(404).json({ message: "Location not found" });
-    }
-    const charger = location.chargers.find((charger) => charger.chargerId === chargerId);
-    if (!charger) {
-      return res.status(404).json({ message: "Charger not found" });
-    }
-
     const { connectorId } = req.body;
     if (!connectorId) {
       return res.status(400).json({ message: "connectorId is required" });
     }
 
-    const exists = charger.connectors.some((connector) => connector.connectorId === connectorId);
-    if (exists) {
-      return res.status(409).json({ message: "Connector already exists" });
+   
+    const updatedLocation = await Location.findOneAndUpdate(
+      {
+        locationId,
+        chargers: { $elemMatch: { chargerId, "connectors.connectorId": { $ne: connectorId } } },
+      },
+      { $push: { "chargers.$.connectors": req.body } },
+      { new: true }
+    );        // Atomic update to avoid race conditions. Ensures connectorId is unique within the target charger.
+
+    if (updatedLocation) {
+      return res.status(201).json(updatedLocation);
     }
 
-    charger.connectors.push(req.body);
-    const updatedLocation = await location.save();
-    res.status(201).json(updatedLocation);
+    // No update: location missing, charger missing, or duplicate connectorId
+    const location = await Location.findOne({ locationId });
+    if (!location) {
+      return res.status(404).json({ message: "Location not found" });
+    }
+    const charger = location.chargers.find((c) => c.chargerId === chargerId);
+    if (!charger) {
+      return res.status(404).json({ message: "Charger not found" });
+    }
+    return res.status(409).json({ message: "Connector already exists" });
   } catch (error) {
     res.status(500).json({ message: "Server error" });
   }

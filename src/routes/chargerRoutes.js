@@ -5,24 +5,27 @@ const Location = require("../model/Location");
 router.post("/:locationId/chargers", async (req, res) => {
   const { locationId } = req.params;
   try {
-    const location = await Location.findOne({ locationId });
-    if (!location) {
-      return res.status(404).json({ message: "Location not found" });
-    }
-
     const { chargerId } = req.body;
     if (!chargerId) {
       return res.status(400).json({ message: "chargerId is required" });
     }
+    
+    const updatedLocation = await Location.findOneAndUpdate(
+      { locationId, "chargers.chargerId": { $ne: chargerId } },
+      { $push: { chargers: req.body } },
+      { new: true }
+    );   // Only updates if a charger with the same chargerId does NOT already exist.
 
-    const exists = location.chargers.some((charger) => charger.chargerId === chargerId);
-    if (exists) {
-      return res.status(409).json({ message: "Charger already exists" });
+    if (updatedLocation) {
+      return res.status(201).json(updatedLocation);
     }
 
-    location.chargers.push(req.body);
-    const updatedLocation = await location.save();
-    res.status(201).json(updatedLocation);
+    // No update occurred: either the location doesn't exist OR the chargerId already exists.
+    const locationExists = await Location.exists({ locationId });
+    if (!locationExists) {
+      return res.status(404).json({ message: "Location not found" });
+    }
+    return res.status(409).json({ message: "Charger already exists" });
   } catch (error) {
     res.status(500).json({ message: "Server error" });
   }
