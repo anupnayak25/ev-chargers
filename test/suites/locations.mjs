@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 
 export function registerLocationTests({ request, app, assert, seedLocation }) {
   describe("Locations routes", () => {
-    it("POST /locations creates a location", async () => {
+    it("Creates a location on POST /locations with a valid payload", async () => {
       const res = await request(app).post("/locations").send({
         locationId: "LOC-001",
         name: "Sample Location",
@@ -12,14 +12,20 @@ export function registerLocationTests({ request, app, assert, seedLocation }) {
 
       assert.equal(res.status, 201);
       assert.equal(res.body.locationId, "LOC-001");
+
+      // Customer expectation: the created location should be retrievable afterward
+      const get = await request(app).get("/locations/LOC-001");
+      assert.equal(get.status, 200);
+      assert.equal(get.body.locationId, "LOC-001");
+      assert.equal(get.body.name, "Sample Location");
     });
 
-    it("POST /locations rejects missing locationId", async () => {
+    it("Rejects location creation when locationId is missing (400)", async () => {
       const res = await request(app).post("/locations").send({ name: "No ID" });
       assert.equal(res.status, 400);
     });
 
-    it("POST /locations rejects duplicate locationId (409)", async () => {
+    it("Rejects if duplicate locationId is submitted (409)", async () => {
       await seedLocation({ locationId: "LOC-001" });
       const res = await request(app).post("/locations").send({
         locationId: "LOC-001",
@@ -30,7 +36,7 @@ export function registerLocationTests({ request, app, assert, seedLocation }) {
       assert.equal(res.status, 409);
     });
 
-    it("GET /locations lists locations", async () => {
+    it("Lists all locations on GET /locations (200)", async () => {
       await seedLocation({ locationId: "LOC-001" });
       const res = await request(app).get("/locations");
       assert.equal(res.status, 200);
@@ -38,14 +44,14 @@ export function registerLocationTests({ request, app, assert, seedLocation }) {
       assert.equal(res.body.length, 1);
     });
 
-    it("GET /locations/:id fetches a location", async () => {
+    it("Fetches a location by locationId on GET /locations/:id for an existing location", async () => {
       await seedLocation({ locationId: "LOC-001" });
       const res = await request(app).get("/locations/LOC-001");
       assert.equal(res.status, 200);
       assert.equal(res.body.locationId, "LOC-001");
     });
 
-    it("DELETE /locations/:id deletes a location", async () => {
+    it("Deletes a location on DELETE /locations/:id for an existing location", async () => {
       await seedLocation({ locationId: "LOC-001" });
       const del = await request(app).delete("/locations/LOC-001");
       assert.equal(del.status, 200);

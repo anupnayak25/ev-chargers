@@ -10,3 +10,6 @@ It an server appliction to store details of Charging stations in different Locat
 
 ## To run(dev server)
 - npx nodemon server.js 
+
+## To run tests
+- npm test
