@@ -2,12 +2,26 @@ const express = require("express");
 const router = express.Router();
 const Location = require("../model/Location");
 
-router.post("/add", async (req, res) => {
+router.post("/", async (req, res) => {
   try {
+    const { locationId } = req.body;
+    if (!locationId) {
+      return res.status(400).json({ message: "locationId is required" });
+    }
+
+    const existing = await Location.findOne({ locationId });
+    if (existing) {
+      return res.status(409).json({ message: "Location already exists" });
+    }
+
     const newLocation = new Location(req.body);
     const savedLocation = await newLocation.save();
     res.status(201).json(savedLocation);
   } catch (error) {
+    // Handle unique index violations defensively (in case of race conditions)
+    if (error && error.code === 11000) {
+      return res.status(409).json({ message: "Location already exists" });
+    }
     res.status(400).json({ message: error.message });
   }
 });

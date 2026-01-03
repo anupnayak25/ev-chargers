@@ -8,8 +8,12 @@ const port = process.env.PORT || 5000;
 app.use(express.json());
 
 app.use("/locations", require("./src/routes/locationRoutes"));
-app.use("/chargers", require("./src/routes/chargerRoutes"));
-app.use("/connectors", require("./src/routes/connectorRoutes"));
+app.use("/locations", require("./src/routes/chargerRoutes"));
+app.use("/locations", require("./src/routes/connectorRoutes"));
+
+app.get("/", (req, res) => {
+  res.send("server is running");
+});
 
 async function start() {
   const uri = process.env.MONGODB_URI;
@@ -28,8 +32,8 @@ async function start() {
   });
 }
 
-start();
-app.get("/", (req, res) => {
-  res.send("server is running");
-});
+module.exports = { app, start };
 
+if (require.main === module) {
+  start();
+}

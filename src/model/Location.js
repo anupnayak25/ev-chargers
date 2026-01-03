@@ -1,20 +1,38 @@
 const mongoose = require("mongoose");
 
 const ConnectorSchema = new mongoose.Schema({
-  connectorId: String,
+  connectorId: {
+    type: String,
+    required: true,
+    unique: true,
+    index: true,
+    trim: true,
+  },
   status: String,
 });
 
 const ChargerSchema = new mongoose.Schema({
-    chargerId: String,
+  chargerId: {
     type: String,
-    connectors: [ConnectorSchema],
+    required: true,
+    unique: true,
+    index: true,
+    trim: true,
+  },
+  type: String,
+  connectors: [ConnectorSchema],
 });
 
 const LocationSchema = new mongoose.Schema({
-    locationId: String,
-    name: String,
-    address: String,
-    chargers: [ChargerSchema],
+  locationId: {
+    type: String,
+    required: true,
+    unique: true,
+    index: true,
+    trim: true,
+  },
+  name:  String,
+  address: String,  
+  chargers: [ChargerSchema],
 });
 module.exports = mongoose.model("Location", LocationSchema);
