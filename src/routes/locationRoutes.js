@@ -1,61 +1,48 @@
 const express = require("express");
 const router = express.Router();
 const Location = require("../model/Location");
+const { HttpError, wrapRoute, requireBodyField, findLocation } = require("./routeUtils");
 
-router.post("/", async (req, res) => {
+async function createLocation(req, res) {
+  requireBodyField(req.body, "locationId", "locationId is required");
+
+  const existing = await Location.findOne({ locationId: req.body.locationId });
+  if (existing) {
+    throw new HttpError(409, "Location already exists");
+  }
   try {
-    const { locationId } = req.body;
-    if (!locationId) {
-      return res.status(400).json({ message: "locationId is required" });
-    }
-
-    const existing = await Location.findOne({ locationId });
-    if (existing) {
-      return res.status(409).json({ message: "Location already exists" });
-    }
-
     const newLocation = new Location(req.body);
     const savedLocation = await newLocation.save();
     res.status(201).json(savedLocation);
   } catch (error) {
-    // Handle unique index violations defensively (in case of race conditions)
     if (error && error.code === 11000) {
-      return res.status(409).json({ message: "Location already exists" });
+      throw new HttpError(409, "Location already exists");
     }
-    res.status(400).json({ message: error.message });
+    throw error;
   }
-});
+}
+async function listLocations(req, res) {
+  const locations = await Location.find();
+  res.status(200).json(locations);
+}
 
-router.get("/", async (req, res) => {
-  try {
-    const locations = await Location.find();
-    res.status(200).json(locations);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+async function deleteLocation(req, res) {
+  const deletedLocation = await Location.findOneAndDelete({ locationId: req.params.id });
+  if (!deletedLocation) {
+    throw new HttpError(404, "Location not found");
   }
-});
+  res.status(200).json({ message: "Location deleted successfully" });
+}
 
-router.delete("/:id", async (req, res) => {
-  try {
-    const deletedLocation = await Location.findOneAndDelete({ locationId: req.params.id });
-    if (!deletedLocation) {
-      return res.status(404).json({ message: "Location not found" });
-    }
-    res.status(200).json({ message: "Location deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
+async function getLocation(req, res) {
+  const location = await findLocation(req.params.id);
+  res.status(200).json(location);
+}
 
-router.get("/:id", async (req, res) => {
-  try {
-    const location = await Location.findOne({ locationId: req.params.id });
-    if (!location) {
-      return res.status(404).json({ message: "Location not found" });
-    }
-    res.status(200).json(location);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
+router.post("/", wrapRoute(createLocation, { defaultStatus: 400, exposeErrorMessage: true, duplicateKeyMessage: "Location already exists",
+  })
+);
+router.get("/", wrapRoute(listLocations, { exposeErrorMessage: true }));
+router.delete("/:id", wrapRoute(deleteLocation, { exposeErrorMessage: true }));
+router.get("/:id", wrapRoute(getLocation, { exposeErrorMessage: true }));
 module.exports = router;

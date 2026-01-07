@@ -1,79 +1,55 @@
 const express = require("express");
 const router = express.Router();
 const Location = require("../model/Location");
+const { HttpError, wrapRoute, requireBodyField , findCharger, findLocation } = require("./routeUtils");
 
-router.post("/:locationId/chargers/:chargerId/connectors", async (req, res) => {
+function removeConnector(charger, connectorId) {
+  const connectorIndex = charger.connectors.findIndex((c) => c.connectorId === connectorId);
+  if (connectorIndex === -1) {
+    throw new HttpError(404, "Connector not found");
+  }
+  charger.connectors.splice(connectorIndex, 1); 
+}
+
+async function postConnector(req, res) {
   const { locationId, chargerId } = req.params;
-  try {
-    const { connectorId } = req.body;
-    if (!connectorId) {
-      return res.status(400).json({ message: "connectorId is required" });
-    }
+  requireBodyField(req.body, "connectorId", "connectorId is required");
 
-   
-    const updatedLocation = await Location.findOneAndUpdate(
-      {
-        locationId,
-        chargers: { $elemMatch: { chargerId, "connectors.connectorId": { $ne: connectorId } } },
+  const updatedLocation = await Location.findOneAndUpdate(
+    {
+      locationId,
+      chargers: {
+        $elemMatch: { chargerId, "connectors.connectorId": { $ne: req.body.connectorId } },
       },
-      { $push: { "chargers.$.connectors": req.body } },
-      { new: true }
-    );        // Atomic update to avoid race conditions. Ensures connectorId is unique within the target charger.
+    },
+    { $push: { "chargers.$.connectors": req.body } },
+    { new: true }
+  );
+  if (updatedLocation) {
+    res.status(201).json(updatedLocation);
+    return;
+  }
 
-    if (updatedLocation) {
-      return res.status(201).json(updatedLocation);
-    }
+  const location = await findLocation(locationId);
+  findCharger(location, chargerId);
+  throw new HttpError(409, "Connector already exists");
+}
 
-    // No update: location missing, charger missing, or duplicate connectorId
-    const location = await Location.findOne({ locationId });
-    if (!location) {
-      return res.status(404).json({ message: "Location not found" });
-    }
-    const charger = location.chargers.find((c) => c.chargerId === chargerId);
-    if (!charger) {
-      return res.status(404).json({ message: "Charger not found" });
-    }
-    return res.status(409).json({ message: "Connector already exists" });
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
-  }
-});
-router.get("/:locationId/chargers/:chargerId/connectors", async (req, res) => {
-  const { locationId, chargerId } = req.params;
-  try {
-    const location = await Location.findOne({ locationId });
-    if (!location) {
-      return res.status(404).json({ message: "Location not found" });
-    }
-    const charger = location.chargers.find((charger) => charger.chargerId === chargerId);
-    if (!charger) {
-      return res.status(404).json({ message: "Charger not found" });
-    }
-    res.status(200).json(charger.connectors);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-router.delete("/:locationId/chargers/:chargerId/connectors/:connectorId", async (req, res) => {
-  const { locationId, chargerId, connectorId } = req.params;
-  try {
-    const location = await Location.findOne({ locationId });
-    if (!location) {
-      return res.status(404).json({ message: "Location not found" });
-    }
-    const charger = location.chargers.find((charger) => charger.chargerId === chargerId);
-    if (!charger) {
-      return res.status(404).json({ message: "Charger not found" });
-    }
-    const connectorIndex = charger.connectors.findIndex((connector) => connector.connectorId === connectorId);
-    if (connectorIndex === -1) {
-      return res.status(404).json({ message: "Connector not found" });
-    }
-    charger.connectors.splice(connectorIndex, 1);
-    const updatedLocation = await location.save();
-    res.status(200).json({ message: "Connector deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
+async function listConnectors(req, res) {
+  const location = await findLocation(req.params.locationId);
+  const charger = findCharger(location, req.params.chargerId);
+  res.status(200).json(charger.connectors);
+}
+
+async function deleteConnector(req, res) {
+  const location = await findLocation(req.params.locationId);
+  const charger = findCharger(location, req.params.chargerId);
+  removeConnector(charger, req.params.connectorId);
+  await location.save();
+  res.status(200).json({ message: "Connector deleted successfully" });
+}
+
+router.post("/:locationId/chargers/:chargerId/connectors", wrapRoute(postConnector));
+router.get("/:locationId/chargers/:chargerId/connectors", wrapRoute(listConnectors, { exposeErrorMessage: true }));
+router.delete("/:locationId/chargers/:chargerId/connectors/:connectorId",wrapRoute(deleteConnector, { exposeErrorMessage: true }));
 module.exports = router;
