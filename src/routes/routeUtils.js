@@ -13,6 +13,40 @@ function isMongoDuplicateKeyError(error) {
   return Boolean(error && typeof error === "object" && error.code === 11000);
 }
 
+function tryRespondHttpError(res, error) {
+  if (!(error instanceof HttpError)) {
+    return false;
+  }
+  res.status(error.status).json({ message: error.message });
+  return true;
+}
+
+function tryRespondDuplicateKeyError(res, error, options) {
+  if (!isMongoDuplicateKeyError(error)) {
+    return false;
+  }
+  res.status(options.duplicateKeyStatus).json({ message: options.duplicateKeyMessage });
+  return true;
+}
+
+function resolveFallbackMessage(error, options) {
+  if (!options.exposeErrorMessage) {
+    return options.defaultMessage;
+  }
+  if (error && error.message) {
+    return error.message;
+  }
+  return options.defaultMessage;
+}
+
+function handleRouteError(res, error, options) {
+  if (tryRespondHttpError(res, error)) return;
+  if (tryRespondDuplicateKeyError(res, error, options)) return;
+
+  const message = resolveFallbackMessage(error, options);
+  res.status(options.defaultStatus).json({ message });
+}
+
 function findCharger(location, chargerId) {
   const charger = location.chargers.find((c) => c.chargerId === chargerId);
   if (!charger) {
@@ -29,21 +63,58 @@ async function findLocation(locationId) {
   return location;
 }
 
+async function loadLocationAndCharger(locationId, chargerId) {
+  const location = await findLocation(locationId);
+  const charger = findCharger(location, chargerId);
+  return { location, charger };
+}
+
+async function tryAddUniqueCharger(locationId, charger) {
+  return Location.findOneAndUpdate(
+    { locationId, "chargers.chargerId": { $ne: charger.chargerId } },
+    { $push: { chargers: charger } },
+    { new: true }
+  );
+}
+
+async function tryAddUniqueConnector(locationId, chargerId, connector) {
+  return Location.findOneAndUpdate(
+    {
+      locationId,
+      chargers: {
+        $elemMatch: {
+          chargerId,
+          "connectors.connectorId": { $ne: connector.connectorId },
+        },
+      },
+    },
+    { $push: { "chargers.$.connectors": connector } },
+    { new: true }
+  );
+}
+
 function wrapRoute(handler, options = {}) {
-  const {defaultStatus = 500,defaultMessage = "Server error", exposeErrorMessage = false, duplicateKeyStatus = 409, duplicateKeyMessage = "Already exists",} = options;
+  const {
+    defaultStatus = 500,
+    defaultMessage = "Server error",
+    exposeErrorMessage = false,
+    duplicateKeyStatus = 409,
+    duplicateKeyMessage = "Already exists",
+  } = options;
+
+  const resolvedOptions = {
+    defaultStatus,
+    defaultMessage,
+    exposeErrorMessage,
+    duplicateKeyStatus,
+    duplicateKeyMessage,
+  };
 
   return async function routeHandler(req, res) {
     try {
       await handler(req, res);
     } catch (error) {
-      if (error instanceof HttpError) {
-        return res.status(error.status).json({ message: error.message });
-      }
-      if (isMongoDuplicateKeyError(error)) {
-        return res.status(duplicateKeyStatus).json({ message: duplicateKeyMessage });
-      }
-      const message = exposeErrorMessage && error && error.message ? error.message : defaultMessage;
-      return res.status(defaultStatus).json({ message });
+      handleRouteError(res, error, resolvedOptions);
     }
   };
 }
@@ -62,4 +133,7 @@ module.exports = {
   requireBodyField,
   findCharger,
   findLocation,
+  loadLocationAndCharger,
+  tryAddUniqueCharger,
+  tryAddUniqueConnector,
 };

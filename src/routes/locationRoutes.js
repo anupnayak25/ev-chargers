@@ -1,29 +1,25 @@
-const express = require("express");
-const router = express.Router();
+const { Router } = require("express");
+const router = Router();
 const Location = require("../model/Location");
 const { HttpError, wrapRoute, requireBodyField, findLocation } = require("./routeUtils");
+
+async function ensureLocationDoesNotExist(locationId) {
+  const existing = await Location.findOne({ locationId });
+  if (existing) {
+    throw new HttpError(409, "Location already exists");
+  }
+}
 
 async function createLocation(req, res) {
   requireBodyField(req.body, "locationId", "locationId is required");
 
-  const existing = await Location.findOne({ locationId: req.body.locationId });
-  if (existing) {
-    throw new HttpError(409, "Location already exists");
-  }
-  try {
-    const newLocation = new Location(req.body);
-    const savedLocation = await newLocation.save();
-    res.status(201).json(savedLocation);
-  } catch (error) {
-    if (error && error.code === 11000) {
-      throw new HttpError(409, "Location already exists");
-    }
-    throw error;
-  }
+  await ensureLocationDoesNotExist(req.body.locationId);
+  const savedLocation = await Location.create(req.body);
+  res.status(201).json(savedLocation);
 }
 async function listLocations(req, res) {
   const locations = await Location.find();
-  res.status(200).json(locations);
+  res.json(locations);
 }
 
 async function deleteLocation(req, res) {
@@ -36,10 +32,15 @@ async function deleteLocation(req, res) {
 
 async function getLocation(req, res) {
   const location = await findLocation(req.params.id);
-  res.status(200).json(location);
+  res.json(location);
 }
 
-router.post("/", wrapRoute(createLocation, { defaultStatus: 400, exposeErrorMessage: true, duplicateKeyMessage: "Location already exists",
+router.post(
+  "/",
+  wrapRoute(createLocation, {
+    defaultStatus: 400,
+    exposeErrorMessage: true,
+    duplicateKeyMessage: "Location already exists",
   })
 );
 router.get("/", wrapRoute(listLocations, { exposeErrorMessage: true }));

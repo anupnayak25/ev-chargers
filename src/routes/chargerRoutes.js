@@ -1,10 +1,17 @@
 const express = require("express");
+const LocationModel = require("../model/Location");
 const router = express.Router();
-const Location = require("../model/Location");
-const { HttpError, wrapRoute, requireBodyField, findCharger, findLocation} = require("./routeUtils");
+const {
+  HttpError,
+  wrapRoute,
+  requireBodyField,
+  findCharger,
+  findLocation,
+  tryAddUniqueCharger,
+} = require("./routeUtils");
 
 async function ensureLocationExists(locationId) {
-  const exists = await Location.exists({ locationId });
+  const exists = await LocationModel.exists({ locationId });
   if (!exists) {
     throw new HttpError(404, "Location not found");
   }
@@ -22,37 +29,32 @@ async function postCharger(req, res) {
   const { locationId } = req.params;
   requireBodyField(req.body, "chargerId", "chargerId is required");
 
-  const updatedLocation = await Location.findOneAndUpdate(
-    { locationId, "chargers.chargerId": { $ne: req.body.chargerId } },
-    { $push: { chargers: req.body } },
-    { new: true }
-  );
+  const updatedLocation = await tryAddUniqueCharger(locationId, req.body);
 
-  if (updatedLocation) {
-    res.status(201).json(updatedLocation);
-    return;
+  if (!updatedLocation) {
+    await ensureLocationExists(locationId);
+    throw new HttpError(409, "Charger already exists");
   }
 
-  await ensureLocationExists(locationId);
-  throw new HttpError(409, "Charger already exists");
+  res.status(201).json(updatedLocation);
 }
 
 async function listChargers(req, res) {
   const location = await findLocation(req.params.locationId);
-  res.status(200).json(location.chargers);
+  res.json(location.chargers);
 }
 
 async function getCharger(req, res) {
   const location = await findLocation(req.params.locationId);
   const charger = findCharger(location, req.params.chargerId);
-  res.status(200).json(charger);
+  res.json(charger);
 }
 
 async function deleteCharger(req, res) {
   const location = await findLocation(req.params.locationId);
   removeCharger(location, req.params.chargerId);
   await location.save();
-  res.status(200).json({ message: "Charger deleted successfully" });
+  res.json({ message: "Charger deleted successfully" });
 }
 
 router.post("/:locationId/chargers", wrapRoute(postCharger));
