@@ -31,7 +31,8 @@ function tryRespondDuplicateKeyError(res, error, options) {
 
 function resolveFallbackMessage(error, options) {
   if (!options.exposeErrorMessage) return options.defaultMessage;
-  return (error && error.message) || options.defaultMessage;
+  const message = error?.message;
+  return message ?? options.defaultMessage;
 }
 
 function handleRouteError(res, error, options) {

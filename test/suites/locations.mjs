@@ -1,13 +1,20 @@
 import { describe, it } from "node:test";
 import { expectArrayLength, expectStatus } from "../helpers/assertHelpers.mjs";
+import { postLocation } from "../helpers/api.mjs";
 
 export function registerLocationTests({ request, app, assert, seedLocation }) {
   describe("Locations routes", () => {
     it("Creates a location on POST /locations with a valid payload", async () => {
-      const create = request(app)
-        .post("/locations")
-        .send({ locationId: "LOC-001", name: "Sample Location", address: "123 Main St", chargers: [] });
-      const res = await expectStatus(create, assert, 201);
+      const res = await expectStatus(
+        postLocation(request, app, {
+          locationId: "LOC-001",
+          name: "Sample Location",
+          address: "123 Main St",
+          chargers: [],
+        }),
+        assert,
+        201
+      );
       assert.equal(res.body.locationId, "LOC-001");
 
       // Customer expectation: the created location should be retrievable afterward
@@ -17,15 +24,16 @@ export function registerLocationTests({ request, app, assert, seedLocation }) {
     });
 
     it("Rejects location creation when locationId is missing (400)", async () => {
-      await expectStatus(request(app).post("/locations").send({ name: "No ID" }), assert, 400);
+      await expectStatus(postLocation(request, app, { name: "No ID" }), assert, 400);
     });
 
     it("Rejects if duplicate locationId is submitted (409)", async () => {
       await seedLocation({ locationId: "LOC-001" });
-      const create = request(app)
-        .post("/locations")
-        .send({ locationId: "LOC-001", name: "Duplicate", address: "Somewhere", chargers: [] });
-      await expectStatus(create, assert, 409);
+      await expectStatus(
+        postLocation(request, app, { locationId: "LOC-001", name: "Duplicate", address: "Somewhere", chargers: [] }),
+        assert,
+        409
+      );
     });
 
     it("Lists all locations on GET /locations (200)", async () => {
