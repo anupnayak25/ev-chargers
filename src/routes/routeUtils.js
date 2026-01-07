@@ -30,13 +30,8 @@ function tryRespondDuplicateKeyError(res, error, options) {
 }
 
 function resolveFallbackMessage(error, options) {
-  if (!options.exposeErrorMessage) {
-    return options.defaultMessage;
-  }
-  if (error && error.message) {
-    return error.message;
-  }
-  return options.defaultMessage;
+  if (!options.exposeErrorMessage) return options.defaultMessage;
+  return (error && error.message) || options.defaultMessage;
 }
 
 function handleRouteError(res, error, options) {
@@ -69,7 +64,7 @@ async function loadLocationAndCharger(locationId, chargerId) {
   return { location, charger };
 }
 
-async function tryAddUniqueCharger(locationId, charger) {
+async function addCharger(locationId, charger) {
   return Location.findOneAndUpdate(
     { locationId, "chargers.chargerId": { $ne: charger.chargerId } },
     { $push: { chargers: charger } },
@@ -77,7 +72,7 @@ async function tryAddUniqueCharger(locationId, charger) {
   );
 }
 
-async function tryAddUniqueConnector(locationId, chargerId, connector) {
+async function addConnector(locationId, chargerId, connector) {
   return Location.findOneAndUpdate(
     {
       locationId,
@@ -134,6 +129,6 @@ module.exports = {
   findCharger,
   findLocation,
   loadLocationAndCharger,
-  tryAddUniqueCharger,
-  tryAddUniqueConnector,
+  addCharger,
+  addConnector,
 };

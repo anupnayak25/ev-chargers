@@ -4,7 +4,7 @@ const {
   wrapRoute,
   requireBodyField,
   loadLocationAndCharger,
-  tryAddUniqueConnector,
+  addConnector,
 } = require("./routeUtils");
 
 function removeConnector(charger, connectorId) {
@@ -19,7 +19,7 @@ async function postConnector(req, res) {
   const { locationId, chargerId } = req.params;
   requireBodyField(req.body, "connectorId", "connectorId is required");
 
-  const updatedLocation = await tryAddUniqueConnector(locationId, chargerId, req.body);
+  const updatedLocation = await addConnector(locationId, chargerId, req.body);
   if (updatedLocation) {
     res.status(201).json(updatedLocation);
     return;

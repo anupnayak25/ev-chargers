@@ -5,11 +5,10 @@ export function registerChargerTests({ request, app, assert, seedLocation, seedC
   describe("Chargers routes", () => {
     it("Adds a charger on POST /locations/:locationId/chargers with a valid payload", async () => {
       await seedLocation({ locationId: "LOC-001" });
-      const res = await expectStatus(
-        request(app).post("/locations/LOC-001/chargers").send({ chargerId: "CHG-001", type: "DC", connectors: [] }),
-        assert,
-        201
-      );
+      const create = request(app)
+        .post("/locations/LOC-001/chargers")
+        .send({ chargerId: "CHG-001", type: "DC", connectors: [] });
+      const res = await expectStatus(create, assert, 201);
       expectArrayLength(res.body.chargers, assert, 1);
       assert.equal(res.body.chargers[0].chargerId, "CHG-001");
 
@@ -26,11 +25,10 @@ export function registerChargerTests({ request, app, assert, seedLocation, seedC
 
     it("Rejects duplicate chargers when the same chargerId is submitted for the same location (409)", async () => {
       await seedCharger({ locationId: "LOC-001", chargerId: "CHG-001" });
-      await expectStatus(
-        request(app).post("/locations/LOC-001/chargers").send({ chargerId: "CHG-001", type: "DC", connectors: [] }),
-        assert,
-        409
-      );
+      const create = request(app)
+        .post("/locations/LOC-001/chargers")
+        .send({ chargerId: "CHG-001", type: "DC", connectors: [] });
+      await expectStatus(create, assert, 409);
     });
 
     it("Lists chargers for a location on GET /locations/:locationId/chargers", async () => {
@@ -52,11 +50,10 @@ export function registerChargerTests({ request, app, assert, seedLocation, seedC
     });
 
     it("Returns 404 when adding a charger to a location that does not exist", async () => {
-      await expectStatus(
-        request(app).post("/locations/LOC-404/chargers").send({ chargerId: "CHG-001", type: "DC", connectors: [] }),
-        assert,
-        404
-      );
+      const create = request(app)
+        .post("/locations/LOC-404/chargers")
+        .send({ chargerId: "CHG-001", type: "DC", connectors: [] });
+      await expectStatus(create, assert, 404);
     });
   });
 }

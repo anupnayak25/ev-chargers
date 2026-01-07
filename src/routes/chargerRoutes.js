@@ -7,7 +7,7 @@ const {
   requireBodyField,
   findCharger,
   findLocation,
-  tryAddUniqueCharger,
+  AddCharger,
 } = require("./routeUtils");
 
 async function ensureLocationExists(locationId) {
@@ -29,7 +29,7 @@ async function postCharger(req, res) {
   const { locationId } = req.params;
   requireBodyField(req.body, "chargerId", "chargerId is required");
 
-  const updatedLocation = await tryAddUniqueCharger(locationId, req.body);
+  const updatedLocation = await AddCharger(locationId, req.body);
 
   if (!updatedLocation) {
     await ensureLocationExists(locationId);

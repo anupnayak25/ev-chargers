@@ -5,13 +5,10 @@ export function registerConnectorTests({ request, app, assert, seedLocation, see
   describe("Connectors routes", () => {
     it("Adds a connector on POST /locations/:locationId/chargers/:chargerId/connectors with a valid payload", async () => {
       await seedCharger({ locationId: "LOC-001", chargerId: "CHG-001" });
-      const res = await expectStatus(
-        request(app)
-          .post("/locations/LOC-001/chargers/CHG-001/connectors")
-          .send({ connectorId: "CON-001", status: "AVAILABLE" }),
-        assert,
-        201
-      );
+      const create = request(app)
+        .post("/locations/LOC-001/chargers/CHG-001/connectors")
+        .send({ connectorId: "CON-001", status: "AVAILABLE" });
+      const res = await expectStatus(create, assert, 201);
       const charger = res.body.chargers.find((c) => c.chargerId === "CHG-001");
       assert.ok(charger);
       assert.equal(charger.connectors[0].connectorId, "CON-001");
@@ -23,22 +20,16 @@ export function registerConnectorTests({ request, app, assert, seedLocation, see
 
     it("Rejects connector creation when connectorId is missing (400)", async () => {
       await seedCharger({ locationId: "LOC-001", chargerId: "CHG-001" });
-      await expectStatus(
-        request(app).post("/locations/LOC-001/chargers/CHG-001/connectors").send({ status: "AVAILABLE" }),
-        assert,
-        400
-      );
+      const create = request(app).post("/locations/LOC-001/chargers/CHG-001/connectors").send({ status: "AVAILABLE" });
+      await expectStatus(create, assert, 400);
     });
 
     it("Rejects duplicate connectors when the same connectorId is submitted for the same charger (409)", async () => {
       await seedConnector({ locationId: "LOC-001", chargerId: "CHG-001", connectorId: "CON-001" });
-      await expectStatus(
-        request(app)
-          .post("/locations/LOC-001/chargers/CHG-001/connectors")
-          .send({ connectorId: "CON-001", status: "AVAILABLE" }),
-        assert,
-        409
-      );
+      const create = request(app)
+        .post("/locations/LOC-001/chargers/CHG-001/connectors")
+        .send({ connectorId: "CON-001", status: "AVAILABLE" });
+      await expectStatus(create, assert, 409);
     });
 
     it("Lists connectors for a charger on GET /locations/:locationId/chargers/:chargerId/connectors", async () => {
@@ -57,13 +48,10 @@ export function registerConnectorTests({ request, app, assert, seedLocation, see
 
     it("Returns 404 when adding a connector to a charger that does not exist", async () => {
       await seedLocation({ locationId: "LOC-001" });
-      await expectStatus(
-        request(app)
-          .post("/locations/LOC-001/chargers/CHG-404/connectors")
-          .send({ connectorId: "CON-001", status: "AVAILABLE" }),
-        assert,
-        404
-      );
+      const create = request(app)
+        .post("/locations/LOC-001/chargers/CHG-404/connectors")
+        .send({ connectorId: "CON-001", status: "AVAILABLE" });
+      await expectStatus(create, assert, 404);
     });
   });
 }
