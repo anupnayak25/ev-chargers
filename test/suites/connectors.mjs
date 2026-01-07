@@ -3,14 +3,23 @@ import { expectArray, expectArrayLength, expectSome, expectStatus } from "../hel
 import { postConnector } from "../helpers/api.mjs";
 
 export function registerConnectorTests({ request, app, assert, seedLocation, seedCharger, seedConnector }) {
+  const defaultLocationId = "LOC-001";
+  const defaultChargerId = "CHG-001";
+  const defaultConnectorPayload = { connectorId: "CON-001", status: "AVAILABLE" };
+
+  async function createConnector(
+    locationId = defaultLocationId,
+    chargerId = defaultChargerId,
+    payload = defaultConnectorPayload,
+    expectedStatus = 201
+  ) {
+    return expectStatus(postConnector(request, app, locationId, chargerId, payload), assert, expectedStatus);
+  }
+
   describe("Connectors routes", () => {
     it("Adds a connector on POST /locations/:locationId/chargers/:chargerId/connectors with a valid payload", async () => {
-      await seedCharger({ locationId: "LOC-001", chargerId: "CHG-001" });
-      const res = await expectStatus(
-        postConnector(request, app, "LOC-001", "CHG-001", { connectorId: "CON-001", status: "AVAILABLE" }),
-        assert,
-        201
-      );
+      await seedCharger({ locationId: defaultLocationId, chargerId: defaultChargerId });
+      const res = await createConnector();
       const charger = res.body.chargers.find((c) => c.chargerId === "CHG-001");
       assert.ok(charger);
       assert.equal(charger.connectors[0].connectorId, "CON-001");
@@ -21,17 +30,13 @@ export function registerConnectorTests({ request, app, assert, seedLocation, see
     });
 
     it("Rejects connector creation when connectorId is missing (400)", async () => {
-      await seedCharger({ locationId: "LOC-001", chargerId: "CHG-001" });
-      await expectStatus(postConnector(request, app, "LOC-001", "CHG-001", { status: "AVAILABLE" }), assert, 400);
+      await seedCharger({ locationId: defaultLocationId, chargerId: defaultChargerId });
+      await createConnector(defaultLocationId, defaultChargerId, { status: "AVAILABLE" }, 400);
     });
 
     it("Rejects duplicate connectors when the same connectorId is submitted for the same charger (409)", async () => {
-      await seedConnector({ locationId: "LOC-001", chargerId: "CHG-001", connectorId: "CON-001" });
-      await expectStatus(
-        postConnector(request, app, "LOC-001", "CHG-001", { connectorId: "CON-001", status: "AVAILABLE" }),
-        assert,
-        409
-      );
+      await seedConnector({ locationId: defaultLocationId, chargerId: defaultChargerId, connectorId: "CON-001" });
+      await createConnector(defaultLocationId, defaultChargerId, defaultConnectorPayload, 409);
     });
 
     it("Lists connectors for a charger on GET /locations/:locationId/chargers/:chargerId/connectors", async () => {

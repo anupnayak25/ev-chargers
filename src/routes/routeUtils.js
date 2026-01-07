@@ -30,9 +30,8 @@ function tryRespondDuplicateKeyError(res, error, options) {
 }
 
 function resolveFallbackMessage(error, options) {
-  if (!options.exposeErrorMessage) return options.defaultMessage;
-  const message = error?.message;
-  return message ?? options.defaultMessage;
+  const exposedMessage = (error && error.message) || options.defaultMessage;
+  return [options.defaultMessage, exposedMessage][Number(Boolean(options.exposeErrorMessage))];
 }
 
 function handleRouteError(res, error, options) {
