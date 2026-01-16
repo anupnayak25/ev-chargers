@@ -74,62 +74,49 @@ registerChargerTests({ request, app, assert, seedLocation, seedCharger });
 registerConnectorTests({ request, app, assert, seedLocation, seedCharger, seedConnector });
 
 describe("routeUtils.wrapRoute error handling", () => {
-  it("responds with HttpError status/message", async () => {
+  async function expectWrappedError({ handler, options, expectedStatus, expectedMessage }) {
     const mini = express();
-    mini.get(
-      "/t",
-      wrapRoute(async () => {
-        throw new HttpError(418, "teapot");
-      })
-    );
-
+    mini.get("/t", wrapRoute(handler, options));
     const res = await request(mini).get("/t");
-    assert.equal(res.status, 418);
-    assert.equal(res.body.message, "teapot");
-  });
+    assert.equal(res.status, expectedStatus);
+    assert.equal(res.body.message, expectedMessage);
+  }
 
-  it("responds with default message for generic errors when exposeErrorMessage=false", async () => {
-    const mini = express();
-    mini.get(
-      "/t",
-      wrapRoute(async () => {
-        throw new Error("boom");
-      })
-    );
-
-    const res = await request(mini).get("/t");
-    assert.equal(res.status, 500);
-    assert.equal(res.body.message, "Server error");
-  });
-
-  it("responds with exposed message for generic errors when exposeErrorMessage=true", async () => {
-    const mini = express();
-    mini.get(
-      "/t",
-      wrapRoute(
-        async () => {
+  it("returns the expected status/message for different error types", async () => {
+    const cases = [
+      {
+        handler: async () => {
+          throw new HttpError(418, "teapot");
+        },
+        expectedStatus: 418,
+        expectedMessage: "teapot",
+      },
+      {
+        handler: async () => {
           throw new Error("boom");
         },
-        { exposeErrorMessage: true }
-      )
-    );
+        expectedStatus: 500,
+        expectedMessage: "Server error",
+      },
+      {
+        handler: async () => {
+          throw new Error("boom");
+        },
+        options: { exposeErrorMessage: true },
+        expectedStatus: 500,
+        expectedMessage: "boom",
+      },
+      {
+        handler: async () => {
+          throw { code: 11000, message: "E11000 duplicate key" };
+        },
+        expectedStatus: 409,
+        expectedMessage: "Already exists",
+      },
+    ];
 
-    const res = await request(mini).get("/t");
-    assert.equal(res.status, 500);
-    assert.equal(res.body.message, "boom");
-  });
-
-  it("responds with duplicateKeyStatus/message for Mongo duplicate key errors (code 11000)", async () => {
-    const mini = express();
-    mini.get(
-      "/t",
-      wrapRoute(async () => {
-        throw { code: 11000, message: "E11000 duplicate key" };
-      })
-    );
-
-    const res = await request(mini).get("/t");
-    assert.equal(res.status, 409);
-    assert.equal(res.body.message, "Already exists");
+    for (const testCase of cases) {
+      await expectWrappedError(testCase);
+    }
   });
 });
