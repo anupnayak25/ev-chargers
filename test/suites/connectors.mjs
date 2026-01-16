@@ -53,6 +53,15 @@ export function registerConnectorTests({ request, app, assert, seedLocation, see
       assert.equal(list.body.length, 0);
     });
 
+    it("Returns 404 when deleting a connector that does not exist", async () => {
+      await seedCharger({ locationId: defaultLocationId, chargerId: defaultChargerId });
+      await expectStatus(
+        request(app).delete(`/locations/${defaultLocationId}/chargers/${defaultChargerId}/connectors/CON-404`),
+        assert,
+        404
+      );
+    });
+
     it("Returns 404 when adding a connector to a charger that does not exist", async () => {
       await seedLocation({ locationId: "LOC-001" });
       await expectStatus(

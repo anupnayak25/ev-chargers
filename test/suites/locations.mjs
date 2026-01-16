@@ -53,5 +53,9 @@ export function registerLocationTests({ request, app, assert, seedLocation }) {
       await expectStatus(request(app).delete("/locations/LOC-001"), assert, 200);
       await expectStatus(request(app).get("/locations/LOC-001"), assert, 404);
     });
+
+    it("Returns 404 when deleting a location that does not exist", async () => {
+      await expectStatus(request(app).delete("/locations/LOC-404"), assert, 404);
+    });
   });
 }

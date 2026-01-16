@@ -51,6 +51,11 @@ export function registerChargerTests({ request, app, assert, seedLocation, seedC
       await expectStatus(request(app).get(`/locations/${defaultLocationId}/chargers/CHG-001`), assert, 404);
     });
 
+    it("Returns 404 when deleting a charger that does not exist", async () => {
+      await seedLocation({ locationId: defaultLocationId });
+      await expectStatus(request(app).delete(`/locations/${defaultLocationId}/chargers/CHG-404`), assert, 404);
+    });
+
     it("Returns 404 when adding a charger to a location that does not exist", async () => {
       await expectStatus(
         postCharger(request, app, "LOC-404", { chargerId: "CHG-001", type: "DC", connectors: [] }),

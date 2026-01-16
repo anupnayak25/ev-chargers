@@ -16,6 +16,8 @@ let mongo;
 // Import CJS modules from ESM test file
 const { app } = require("../server.js");
 const Location = require("../src/model/Location");
+const express = require("express");
+const { HttpError, wrapRoute } = require("../src/routes/routeUtils");
 
 //Baseline data seeding functions to mimic real-world usage
 async function seedLocation({ locationId = "LOC-001" } = {}) {
@@ -70,3 +72,64 @@ describe("Checking Health", () => {
 registerLocationTests({ request, app, assert, seedLocation });
 registerChargerTests({ request, app, assert, seedLocation, seedCharger });
 registerConnectorTests({ request, app, assert, seedLocation, seedCharger, seedConnector });
+
+describe("routeUtils.wrapRoute error handling", () => {
+  it("responds with HttpError status/message", async () => {
+    const mini = express();
+    mini.get(
+      "/t",
+      wrapRoute(async () => {
+        throw new HttpError(418, "teapot");
+      })
+    );
+
+    const res = await request(mini).get("/t");
+    assert.equal(res.status, 418);
+    assert.equal(res.body.message, "teapot");
+  });
+
+  it("responds with default message for generic errors when exposeErrorMessage=false", async () => {
+    const mini = express();
+    mini.get(
+      "/t",
+      wrapRoute(async () => {
+        throw new Error("boom");
+      })
+    );
+
+    const res = await request(mini).get("/t");
+    assert.equal(res.status, 500);
+    assert.equal(res.body.message, "Server error");
+  });
+
+  it("responds with exposed message for generic errors when exposeErrorMessage=true", async () => {
+    const mini = express();
+    mini.get(
+      "/t",
+      wrapRoute(
+        async () => {
+          throw new Error("boom");
+        },
+        { exposeErrorMessage: true }
+      )
+    );
+
+    const res = await request(mini).get("/t");
+    assert.equal(res.status, 500);
+    assert.equal(res.body.message, "boom");
+  });
+
+  it("responds with duplicateKeyStatus/message for Mongo duplicate key errors (code 11000)", async () => {
+    const mini = express();
+    mini.get(
+      "/t",
+      wrapRoute(async () => {
+        throw { code: 11000, message: "E11000 duplicate key" };
+      })
+    );
+
+    const res = await request(mini).get("/t");
+    assert.equal(res.status, 409);
+    assert.equal(res.body.message, "Already exists");
+  });
+});
